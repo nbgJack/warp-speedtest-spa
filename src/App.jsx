@@ -15,7 +15,8 @@ import {
   Wifi, 
   FileText,
   Plus,
-  Trash2
+  Trash2,
+  HelpCircle
 } from 'lucide-react'
 
 // Default values & fallbacks
@@ -56,6 +57,7 @@ export default function App() {
   
   const [activeTab, setActiveTab] = useState('auto') // 'auto' | 'manual'
   const [registrationStatus, setRegistrationStatus] = useState('idle') // 'idle' | 'registering' | 'success' | 'failed'
+  const [showGuide, setShowGuide] = useState(false)
   
   // Benchmarking State
   const [concurrency, setConcurrency] = useState(25)
@@ -468,6 +470,48 @@ export default function App() {
 
       {/* Main Grid Layout */}
       <main className="w-full max-w-lg flex flex-col gap-4 flex-1">
+        
+        {/* Collapsible Guide */}
+        <section className="glass-panel rounded-2xl p-4 shadow-lg transition-all duration-300">
+          <button 
+            onClick={() => setShowGuide(!showGuide)}
+            className="w-full flex items-center justify-between text-xs font-bold text-gray-300 uppercase tracking-wider focus:outline-none"
+          >
+            <span className="flex items-center gap-1.5 text-neonBlue">
+              <HelpCircle className="w-4 h-4 text-neonBlue" />
+              💡 使用指南 & 常见问题
+            </span>
+            <span className="text-[10px] text-gray-500 font-mono">
+              {showGuide ? '[ 点击收起 ]' : '[ 点击展开 ]'}
+            </span>
+          </button>
+          
+          {showGuide && (
+            <div className="mt-3 text-xs text-gray-400 space-y-3 border-t border-gray-800/60 pt-3 leading-relaxed">
+              <div className="flex gap-2">
+                <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">1</span>
+                <div>
+                  <p className="font-bold text-gray-300">配置账户凭证</p>
+                  <p className="text-[11px] mt-0.5">点击“注册账户”，网页会自动处理。如果因浏览器跨域安全策略导致注册失败，会显示“降级运行”并自动填充标准参数，这<b>完全不影响</b>后续使用，直接进行下一步即可。</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">2</span>
+                <div>
+                  <p className="font-bold text-gray-300">Anycast IP 优选测速</p>
+                  <p className="text-[11px] mt-0.5">建议测速前<b>关闭小火箭或其它 VPN</b> 以确保测得真实宽带延迟。点击“开始 IP 优选测速”，测试完成后延迟最低的前 5 个 IP 会被自动勾选。</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">3</span>
+                <div>
+                  <p className="font-bold text-gray-300">导入小火箭配置</p>
+                  <p className="text-[11px] mt-0.5">勾选希望生成的端口（建议多选以获得更多备用节点），直接点击<b>“🚀 一键导入 Shadowrocket”</b>，网页会自动唤起小火箭并将优选节点全数导入。</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </section>
         
         {/* Step 1: Account Configuration (Auto/Manual) */}
         <section className="glass-panel rounded-2xl p-4 shadow-lg">
