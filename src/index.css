@@ -1,0 +1,79 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-darkBg text-gray-100 font-sans antialiased overflow-x-hidden selection:bg-neonBlue selection:text-darkBg;
+  }
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(31, 40, 51, 0.5);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(102, 252, 241, 0.3);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(102, 252, 241, 0.6);
+}
+
+/* Grid Pattern Background overlay */
+.bg-grid {
+  background-size: 30px 30px;
+  background-image: 
+    linear-gradient(to right, rgba(102, 252, 241, 0.03) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(102, 252, 241, 0.03) 1px, transparent 1px);
+}
+
+/* Glassmorphism Classes */
+.glass-panel {
+  background: rgba(31, 40, 51, 0.65);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(102, 252, 241, 0.1);
+}
+
+.glass-panel-glow {
+  background: rgba(31, 40, 51, 0.8);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(102, 252, 241, 0.25);
+  box-shadow: 0 0 20px rgba(102, 252, 241, 0.15);
+}
+
+/* Pulse neon animation */
+@keyframes neonPulse {
+  0%, 100% {
+    text-shadow: 0 0 4px rgba(102, 252, 241, 0.6), 0 0 12px rgba(102, 252, 241, 0.4);
+    opacity: 0.9;
+  }
+  50% {
+    text-shadow: 0 0 8px rgba(102, 252, 241, 0.9), 0 0 20px rgba(102, 252, 241, 0.6);
+    opacity: 1;
+  }
+}
+
+.neon-text-pulse {
+  animation: neonPulse 2s infinite alternate;
+}
+
+/* Status light pulse */
+@keyframes statusGlow {
+  0%, 100% {
+    box-shadow: 0 0 4px currentColor;
+  }
+  50% {
+    box-shadow: 0 0 12px currentColor;
+  }
+}
+
+.status-indicator {
+  animation: statusGlow 1.5s infinite alternate;
+}

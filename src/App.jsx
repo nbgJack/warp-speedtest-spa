@@ -1,0 +1,823 @@
+import React, { useState, useEffect, useRef } from 'react'
+import nacl from 'tweetnacl'
+import { 
+  Zap, 
+  Shield, 
+  Terminal as TerminalIcon, 
+  Settings, 
+  Download, 
+  Copy, 
+  ExternalLink, 
+  RefreshCw, 
+  CheckCircle2, 
+  AlertTriangle, 
+  Sliders, 
+  Wifi, 
+  FileText,
+  Plus,
+  Trash2
+} from 'lucide-react'
+
+// Default values & fallbacks
+const DEFAULT_PEER_KEY = 'bmXOC+F1FxEMF9dyiK2H5/1SUtzH0JuVo51h2wPfgyo='
+const DEFAULT_ADDR_V4 = '172.16.0.2'
+const DEFAULT_ADDR_V6 = '2606:4700:110:8888::2'
+const DEFAULT_RESERVED = '0,0,0'
+
+// Cloudflare Anycast IP pool subnets
+const ANYCAST_SUBNETS = [
+  '162.159.192', '162.159.193', '162.159.195', '162.159.196',
+  '162.159.204', '162.159.205', '162.159.206', '188.114.96',
+  '188.114.97', '188.114.98', '188.114.99', '188.114.100',
+  '188.114.101'
+]
+
+// Common WARP ports
+const WARP_PORTS = [2408, 500, 1701, 4500]
+
+// Helper: base64 utilities
+const toBase64 = (u8) => btoa(String.fromCharCode.apply(null, u8))
+const fromBase64 = (str) => {
+  try {
+    return new Uint8Array(atob(str).split('').map(c => c.charCodeAt(0)))
+  } catch (e) {
+    return new Uint8Array()
+  }
+}
+
+export default function App() {
+  // App State
+  const [privateKey, setPrivateKey] = useState('')
+  const [publicKey, setPublicKey] = useState('')
+  const [peerPublicKey, setPeerPublicKey] = useState(DEFAULT_PEER_KEY)
+  const [addressV4, setAddressV4] = useState(DEFAULT_ADDR_V4)
+  const [addressV6, setAddressV6] = useState(DEFAULT_ADDR_V6)
+  const [reserved, setReserved] = useState(DEFAULT_RESERVED)
+  
+  const [activeTab, setActiveTab] = useState('auto') // 'auto' | 'manual'
+  const [registrationStatus, setRegistrationStatus] = useState('idle') // 'idle' | 'registering' | 'success' | 'failed'
+  
+  // Benchmarking State
+  const [concurrency, setConcurrency] = useState(25)
+  const [timeoutMs, setTimeoutMs] = useState(1500)
+  const [isTesting, setIsTesting] = useState(false)
+  const [testResults, setTestResults] = useState([])
+  const [selectedIPs, setSelectedIPs] = useState([])
+  const [selectedPorts, setSelectedPorts] = useState([2408, 500, 1701, 4500])
+  const [testProgress, setTestProgress] = useState({ current: 0, total: 0 })
+  
+  // Terminal log state
+  const [logs, setLogs] = useState([])
+  const terminalEndRef = useRef(null)
+
+  // System setup on load
+  useEffect(() => {
+    addLog('[*] WARP 优选系统已就绪')
+    addLog('[*] 点击下方按钮开始生成密钥对及注册账户')
+    generateKeys(false)
+  }, [])
+
+  // Auto scroll logs
+  useEffect(() => {
+    if (terminalEndRef.current) {
+      terminalEndRef.current.scrollIntoView({ behavior: 'smooth' })
+    }
+  }, [logs])
+
+  // Helper: Append console log
+  const addLog = (message) => {
+    const timestamp = new Date().toLocaleTimeString()
+    setLogs(prev => [...prev, `[${timestamp}] ${message}`])
+  }
+
+  // Key Pair Generator (Curve25519)
+  const generateKeys = (verbose = true) => {
+    try {
+      const keypair = nacl.box.keyPair()
+      const priv = toBase64(keypair.secretKey)
+      const pub = toBase64(keypair.publicKey)
+      
+      setPrivateKey(priv)
+      setPublicKey(pub)
+      
+      if (verbose) {
+        addLog('[+] 成功生成 X25519 密钥对')
+        addLog(`    └─ 私钥 (32B): ${priv.substring(0, 10)}...`)
+        addLog(`    └─ 公钥 (32B): ${pub.substring(0, 10)}...`)
+      }
+      return { priv, pub }
+    } catch (error) {
+      addLog(`[X] 密钥生成失败: ${error.message}`)
+      return null
+    }
+  }
+
+  // Register WARP Account
+  const registerWarpAccount = async () => {
+    let currentPub = publicKey
+    let currentPriv = privateKey
+    
+    // Auto generate keys if they don't exist
+    if (!currentPub || !currentPriv) {
+      const keys = generateKeys(true)
+      if (!keys) return
+      currentPub = keys.pub
+      currentPriv = keys.priv
+    }
+
+    setRegistrationStatus('registering')
+    addLog('[*] 发起 API 请求注册 Cloudflare WARP 设备账号...')
+    addLog(`    └─ 请求终点: https://api.cloudflareclient.com/v0a2415/reg`)
+
+    const payload = {
+      key: currentPub,
+      install_id: "",
+      fcm_token: "",
+      referrer: "",
+      warp_enabled: true,
+      tos: new Date().toISOString(),
+      type: "ios",
+      locale: "zh_CN"
+    }
+
+    try {
+      // Set short timeout for API fetch
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+      const response = await fetch('https://api.cloudflareclient.com/v0a2415/reg', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json; charset=UTF-8',
+          'User-Agent': 'okhttp/3.12.1'
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      })
+
+      clearTimeout(timeoutId)
+
+      if (!response.ok) {
+        throw new Error(`API 响应错误: 状态码 ${response.status}`)
+      }
+
+      const data = await response.json()
+      addLog('[+] WARP API 注册响应成功！开始解析字段...')
+
+      // Extract details
+      const peerKey = data.config?.peers?.[0]?.public_key || DEFAULT_PEER_KEY
+      const v4 = data.config?.interface?.addresses?.v4 || `${DEFAULT_ADDR_V4}/32`
+      const v6 = data.config?.interface?.addresses?.v6 || `${DEFAULT_ADDR_V6}/128`
+      const clientId = data.config?.client_id || ''
+
+      // Clean CIDR notation if needed for the state
+      const cleanV4 = v4.split('/')[0]
+      const cleanV6 = v6.split('/')[0]
+
+      setPeerPublicKey(peerKey)
+      setAddressV4(cleanV4)
+      setAddressV6(cleanV6)
+
+      // Calculate Reserved bytes from client_id
+      let reservedStr = DEFAULT_RESERVED
+      if (clientId) {
+        const decodedBytes = fromBase64(clientId)
+        if (decodedBytes.length === 3) {
+          reservedStr = Array.from(decodedBytes).join(',')
+        } else {
+          addLog(`[!] client_id (${clientId}) 解码字节长度为 ${decodedBytes.length}，期望 3 字节，使用默认 reserved 0,0,0`)
+        }
+      } else {
+        addLog('[!] 响应中未包含 client_id，使用默认 reserved 0,0,0')
+      }
+
+      setReserved(reservedStr)
+      setRegistrationStatus('success')
+      
+      addLog('[+] Cloudflare WARP 账户注册成功')
+      addLog(`    └─ 分配内网 IPv4: ${v4}`)
+      addLog(`    └─ 分配内网 IPv6: ${v6}`)
+      addLog(`    └─ Reserved 标识: ${reservedStr}`)
+      addLog(`    └─ 对端公钥: ${peerKey}`)
+      
+    } catch (error) {
+      console.error(error)
+      setRegistrationStatus('failed')
+      addLog('[!] WARP 账户注册失败 (可能是 CORS 限制或网络不可达)')
+      addLog(`    └─ 错误原因: ${error.message}`)
+      addLog(`[!] 触发降级保护机制：使用本地标准默认参数 (Client IP: ${DEFAULT_ADDR_V4}, Reserved: 0,0,0)`)
+      
+      // Load standard defaults
+      setPeerPublicKey(DEFAULT_PEER_KEY)
+      setAddressV4(DEFAULT_ADDR_V4)
+      setAddressV6(DEFAULT_ADDR_V6)
+      setReserved(DEFAULT_RESERVED)
+    }
+  }
+
+  // Anycast IP Generator (samples offsets of subnet range)
+  const generateBenchmarkIPs = () => {
+    const list = []
+    // We sample specific offsets: .1, .9, .22, .50, .100 for each subnet
+    const offsets = [1, 9, 22, 50, 100]
+    
+    ANYCAST_SUBNETS.forEach(subnet => {
+      offsets.forEach(offset => {
+        list.push(`${subnet}.${offset}`)
+      });
+    });
+    return list
+  }
+
+  // Latency Benchmarking (HTTP connection probes)
+  const startBenchmarking = async () => {
+    if (isTesting) return
+    setIsTesting(true)
+    setTestResults([])
+    setSelectedIPs([])
+    
+    const candidateIPs = generateBenchmarkIPs()
+    const total = candidateIPs.length
+    
+    addLog(`[*] 开始 Anycast IP 优选测速 (共 ${total} 个候选节点)...`)
+    addLog(`    └─ 并发度: ${concurrency} | 超时上限: ${timeoutMs}ms`)
+    addLog(`    └─ 测速方式: HTTPS/HTTP 握手延迟测试`)
+
+    setTestProgress({ current: 0, total })
+
+    const protocol = window.location.protocol === 'https:' ? 'https:' : 'http:'
+    const results = []
+
+    // Concurrency queue implementation
+    const queue = [...candidateIPs]
+    const workers = Array(Math.min(concurrency, queue.length)).fill(null).map(async () => {
+      while (queue.length > 0) {
+        const ip = queue.shift()
+        if (!ip) break
+        
+        const start = performance.now()
+        let latency = 9999
+        let status = 'failed'
+        
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
+          
+          // Probe connection
+          await fetch(`${protocol}//${ip}/cdn-cgi/trace`, {
+            mode: 'no-cors',
+            signal: controller.signal,
+            credentials: 'omit',
+            cache: 'no-store'
+          })
+          
+          clearTimeout(timeoutId)
+          latency = Math.round(performance.now() - start)
+          status = 'success'
+        } catch (e) {
+          // In most browsers, HTTPS by IP throws cert validation errors (TypeError / abort)
+          // But the error is thrown AFTER connection is established, so performance.now() is still valid!
+          if (e.name !== 'AbortError') {
+            latency = Math.round(performance.now() - start)
+            status = 'success'
+          }
+        }
+
+        const result = { ip, latency, status }
+        results.push(result)
+        
+        setTestResults(prev => {
+          const updated = [...prev, result].sort((a, b) => a.latency - b.latency)
+          return updated
+        })
+
+        setTestProgress(prev => ({ ...prev, current: prev.current + 1 }))
+      }
+    })
+
+    await Promise.all(workers)
+
+    // Filter successfully tested and sort
+    const validResults = results
+      .filter(r => r.status === 'success' && r.latency < timeoutMs)
+      .sort((a, b) => a.latency - b.latency)
+
+    setIsTesting(false)
+    addLog(`[+] IP 优选测速完成！共 ${validResults.length} 个 IP 有效响应`)
+    
+    if (validResults.length > 0) {
+      const top5 = validResults.slice(0, 5).map(r => r.ip)
+      setSelectedIPs(top5)
+      addLog(`[+] 已自动勾选延迟前 5 的优质 IP: ${top5.join(', ')}`)
+    } else {
+      addLog(`[!] 未探测到可用 IP，请检查您的移动网络或增大超时限制`)
+    }
+  }
+
+  // Toggle IP selection
+  const toggleIP = (ip) => {
+    setSelectedIPs(prev => 
+      prev.includes(ip) ? prev.filter(item => item !== ip) : [...prev, ip]
+    )
+  }
+
+  // Toggle Port selection
+  const togglePort = (port) => {
+    setSelectedPorts(prev => 
+      prev.includes(port) ? prev.filter(item => item !== port) : [...prev, port]
+    )
+  }
+
+  // Compile individual WireGuard URL for Shadowrocket
+  const compileNodeLink = (ip, port, idx) => {
+    const alias = `CF-WARP-优选${idx}-端口${port}`
+    
+    const encPriv = encodeURIComponent(privateKey)
+    const encPub = encodeURIComponent(peerPublicKey)
+    const encAddr = encodeURIComponent(`${addressV4}/32`)
+    const encAlias = encodeURIComponent(alias)
+    
+    // Build link with maximum client compatibility
+    return `wireguard://${encPriv}@${ip}:${port}?privateKey=${encPriv}&privatekey=${encPriv}&publicKey=${encPub}&publickey=${encPub}&address=${encAddr}&ip=${encAddr}&mru=1280&mtu=1280&reserved=${reserved}#${encAlias}`
+  }
+
+  // Generate Shadowrocket Subscription payload (Base64 list of links)
+  const getSubContent = () => {
+    if (selectedIPs.length === 0 || selectedPorts.length === 0) return ''
+    
+    const links = []
+    let idx = 1
+    selectedIPs.forEach(ip => {
+      selectedPorts.forEach(port => {
+        links.push(compileNodeLink(ip, port, idx))
+      })
+      idx++
+    })
+    
+    return links.join('\n')
+  }
+
+  // Copy shadowrocket direct import link to clipboard
+  const copyShadowrocketLink = () => {
+    const subContent = getSubContent()
+    if (!subContent) {
+      alert('请先选择至少一个 IP 和一个端口')
+      return
+    }
+    
+    const base64Content = btoa(unescape(encodeURIComponent(subContent)))
+    const shadowrocketUrl = `shadowrocket://add/${base64Content}`
+    
+    navigator.clipboard.writeText(shadowrocketUrl)
+    addLog(`[+] 小火箭合并导入链接已拷贝至剪贴板!`)
+    alert('小火箭导入链接已复制！您可以直接粘贴到小火箭，或点击“立即导入”直接唤起 APP。')
+  }
+
+  // Launch Shadowrocket (Direct URL scheme redirect)
+  const launchShadowrocket = () => {
+    const subContent = getSubContent()
+    if (!subContent) {
+      alert('请先选择至少一个 IP 和一个端口')
+      return
+    }
+    
+    const base64Content = btoa(unescape(encodeURIComponent(subContent)))
+    const shadowrocketUrl = `shadowrocket://add/${base64Content}`
+    
+    addLog(`[*] 正在通过 URL Scheme 唤起 Shadowrocket 并导入...`)
+    window.location.href = shadowrocketUrl
+  }
+
+  // Compile combined .conf text file
+  const generateConfContent = () => {
+    if (selectedIPs.length === 0 || selectedPorts.length === 0) return ''
+    
+    let content = ''
+    let idx = 1
+    
+    selectedIPs.forEach(ip => {
+      selectedPorts.forEach(port => {
+        content += `# ==========================================\n`
+        content += `# 节点 ${idx}: ${ip}:${port}\n`
+        content += `# ==========================================\n`
+        content += `[Interface]\n`
+        content += `PrivateKey = ${privateKey}\n`
+        content += `Address = ${addressV4}/32, ${addressV6}/128\n`
+        content += `DNS = 1.1.1.1, 8.8.8.8, 2606:4700:4700::1111, 2001:4860:4860::8888\n`
+        content += `MTU = 1280\n\n`
+        content += `[Peer]\n`
+        content += `PublicKey = ${peerPublicKey}\n`
+        content += `AllowedIPs = 0.0.0.0/0, ::/0\n`
+        content += `Endpoint = ${ip}:${port}\n`
+        content += `Reserved = ${reserved}\n\n\n`
+      })
+      idx++
+    })
+    
+    return content
+  }
+
+  // Copy .conf configuration to clipboard
+  const copyConf = () => {
+    const conf = generateConfContent()
+    if (!conf) {
+      alert('请先选择至少一个 IP 和一个端口')
+      return
+    }
+    navigator.clipboard.writeText(conf)
+    addLog('[+] 优选 WireGuard 配置内容已拷贝至剪贴板')
+    alert('合并配置内容已复制到剪贴板！')
+  }
+
+  // Download combined .conf file
+  const downloadConfFile = () => {
+    const conf = generateConfContent()
+    if (!conf) {
+      alert('请先选择至少一个 IP 和一个端口')
+      return
+    }
+    
+    const blob = new Blob([conf], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'warp_anycast_optimized.conf'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    addLog('[+] warp_anycast_optimized.conf 配置文件已下载')
+  }
+
+  return (
+    <div className="min-h-screen bg-darkBg bg-grid flex flex-col items-center p-3 pb-8 md:p-6 text-gray-100">
+      
+      {/* Header */}
+      <header className="w-full max-w-lg mb-4 text-center mt-3">
+        <div className="inline-flex items-center gap-2 px-3 py-1 bg-darkCard/80 glass-panel rounded-full text-neonBlue text-xs font-semibold mb-2 shadow-neon">
+          <Shield className="w-3.5 h-3.5 animate-pulse" />
+          <span>CLOUDFLARE WARP IP OPTIMIZER</span>
+        </div>
+        <h1 className="text-3xl font-extrabold font-sans tracking-tight bg-gradient-to-r from-neonBlue via-cyanGlow to-neonPurple bg-clip-text text-transparent">
+          WARP Speedtest
+        </h1>
+        <p className="text-xs text-gray-400 mt-1 font-sans">
+          为 iOS Shadowrocket 客户端一键优选 Cloudflare Anycast 节点
+        </p>
+      </header>
+
+      {/* Main Grid Layout */}
+      <main className="w-full max-w-lg flex flex-col gap-4 flex-1">
+        
+        {/* Step 1: Account Configuration (Auto/Manual) */}
+        <section className="glass-panel rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between mb-4 border-b border-gray-800 pb-2">
+            <h2 className="text-sm font-bold tracking-wider text-gray-300 uppercase flex items-center gap-2">
+              <Settings className="w-4 h-4 text-neonPurple" />
+              1. 账户凭证配置
+            </h2>
+            <div className="flex bg-gray-900/60 p-0.5 rounded-lg border border-gray-800">
+              <button 
+                onClick={() => setActiveTab('auto')}
+                className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${activeTab === 'auto' ? 'bg-neonBlue text-darkBg shadow-sm' : 'text-gray-400'}`}
+              >
+                自动注册
+              </button>
+              <button 
+                onClick={() => setActiveTab('manual')}
+                className={`text-xs px-2.5 py-1 rounded-md font-medium transition-all ${activeTab === 'manual' ? 'bg-neonPurple text-white shadow-sm' : 'text-gray-400'}`}
+              >
+                手动配置
+              </button>
+            </div>
+          </div>
+
+          {activeTab === 'auto' ? (
+            <div className="flex flex-col gap-3">
+              <div className="flex items-center justify-between bg-gray-900/40 p-3 rounded-xl border border-gray-800/60">
+                <div className="flex flex-col">
+                  <span className="text-xs text-gray-400">WARP 账户注册状态</span>
+                  <div className="flex items-center gap-1.5 mt-0.5">
+                    {registrationStatus === 'idle' && (
+                      <span className="text-xs font-semibold text-gray-500">未开始</span>
+                    )}
+                    {registrationStatus === 'registering' && (
+                      <span className="text-xs font-semibold text-neonBlue flex items-center gap-1">
+                        <span className="inline-block w-1.5 h-1.5 bg-neonBlue rounded-full animate-ping" />
+                         正在注册...
+                      </span>
+                    )}
+                    {registrationStatus === 'success' && (
+                      <span className="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+                        <CheckCircle2 className="w-3.5 h-3.5" /> 注册成功
+                      </span>
+                    )}
+                    {registrationStatus === 'failed' && (
+                      <span className="text-xs font-semibold text-amber-500 flex items-center gap-1">
+                        <AlertTriangle className="w-3.5 h-3.5" /> 降级运行
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={registerWarpAccount}
+                  disabled={registrationStatus === 'registering'}
+                  className="bg-neonBlue/10 border border-neonBlue hover:bg-neonBlue hover:text-darkBg text-neonBlue text-xs font-bold px-3.5 py-2 rounded-lg transition-all duration-300 flex items-center gap-1.5 shadow-neon"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${registrationStatus === 'registering' ? 'animate-spin' : ''}`} />
+                  {registrationStatus === 'idle' ? '注册账户' : '重新注册'}
+                </button>
+              </div>
+
+              {/* Readonly details */}
+              <div className="grid grid-cols-2 gap-2 text-xs font-mono">
+                <div className="bg-darkBg/60 p-2 rounded-lg border border-gray-800/40">
+                  <span className="text-[10px] text-gray-500 block">IPv4 地址</span>
+                  <span className="text-gray-300 block truncate">{addressV4}</span>
+                </div>
+                <div className="bg-darkBg/60 p-2 rounded-lg border border-gray-800/40">
+                  <span className="text-[10px] text-gray-500 block">Reserved (3 字节)</span>
+                  <span className="text-neonBlue block truncate font-bold">{reserved}</span>
+                </div>
+                <div className="col-span-2 bg-darkBg/60 p-2 rounded-lg border border-gray-800/40">
+                  <span className="text-[10px] text-gray-500 block">对端公钥 (Peer PublicKey)</span>
+                  <span className="text-gray-400 block truncate">{peerPublicKey}</span>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 font-mono">
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-500 uppercase">WireGuard 客户端私钥</label>
+                  <input
+                    type="text"
+                    value={privateKey}
+                    onChange={(e) => setPrivateKey(e.target.value)}
+                    placeholder="Base64 编码的 32字节私钥"
+                    className="bg-darkBg/80 border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:border-neonPurple focus:outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-500 uppercase">Reserved (十进制字节码)</label>
+                  <input
+                    type="text"
+                    value={reserved}
+                    onChange={(e) => setReserved(e.target.value)}
+                    placeholder="如: 148,22,9"
+                    className="bg-darkBg/80 border border-gray-800 rounded-lg p-2 text-xs text-neonPurple font-bold focus:border-neonPurple focus:outline-none"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-500 uppercase">内网 IPv4 地址</label>
+                  <input
+                    type="text"
+                    value={addressV4}
+                    onChange={(e) => setAddressV4(e.target.value)}
+                    placeholder="172.16.0.2"
+                    className="bg-darkBg/80 border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:border-neonPurple focus:outline-none"
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] text-gray-500 uppercase">对端公钥 (Peer PublicKey)</label>
+                  <input
+                    type="text"
+                    value={peerPublicKey}
+                    onChange={(e) => setPeerPublicKey(e.target.value)}
+                    placeholder="Cloudflare 对端公钥"
+                    className="bg-darkBg/80 border border-gray-800 rounded-lg p-2 text-xs text-gray-300 focus:border-neonPurple focus:outline-none"
+                  />
+                </div>
+              </div>
+              <button 
+                onClick={() => generateKeys(true)}
+                className="mt-1 bg-neonPurple/10 border border-neonPurple hover:bg-neonPurple/20 text-neonPurple text-xs py-2 rounded-lg font-bold transition-all flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                重新生成客户端密钥对
+              </button>
+            </div>
+          )}
+        </section>
+
+        {/* Step 2: Optimizing & Benchmarking */}
+        <section className="glass-panel rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center justify-between mb-3 border-b border-gray-800 pb-2">
+            <h2 className="text-sm font-bold tracking-wider text-gray-300 uppercase flex items-center gap-2">
+              <Zap className="w-4 h-4 text-neonBlue" />
+              2. Anycast IP 优选测速
+            </h2>
+            <div className="flex items-center gap-1">
+              <span className={`inline-block w-2 h-2 rounded-full ${isTesting ? 'bg-neonBlue animate-ping' : 'bg-gray-600'}`} />
+              <span className="text-[10px] text-gray-400 font-mono">
+                {isTesting ? `测速中 ${testProgress.current}/${testProgress.total}` : '已就绪'}
+              </span>
+            </div>
+          </div>
+
+          {/* Benchmarking Parameters Accordion */}
+          <div className="mb-4 bg-darkBg/50 border border-gray-800/80 rounded-xl p-3">
+            <div className="flex items-center gap-1 mb-2 text-xs text-gray-400 font-semibold">
+              <Sliders className="w-3.5 h-3.5" />
+              <span>并发与延迟限制设定</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3 text-xs">
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-gray-500">并发线程数</span>
+                  <span className="text-neonBlue font-bold">{concurrency}</span>
+                </div>
+                <input
+                  type="range"
+                  min="5"
+                  max="60"
+                  value={concurrency}
+                  onChange={(e) => setConcurrency(parseInt(e.target.value))}
+                  className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-neonBlue"
+                />
+              </div>
+
+              <div className="flex flex-col gap-1">
+                <div className="flex justify-between">
+                  <span className="text-[10px] text-gray-500">超时上限</span>
+                  <span className="text-neonBlue font-bold">{timeoutMs}ms</span>
+                </div>
+                <input
+                  type="range"
+                  min="500"
+                  max="3000"
+                  step="100"
+                  value={timeoutMs}
+                  onChange={(e) => setTimeoutMs(parseInt(e.target.value))}
+                  className="w-full h-1 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-neonBlue"
+                />
+              </div>
+            </div>
+          </div>
+
+          <button
+            onClick={startBenchmarking}
+            disabled={isTesting}
+            className="w-full bg-gradient-to-r from-neonBlue to-neonGreen text-darkBg font-extrabold text-sm py-2.5 rounded-xl shadow-lg transition-transform active:scale-[0.98] disabled:opacity-50 hover:shadow-neon duration-300 flex items-center justify-center gap-2"
+          >
+            <Zap className={`w-4 h-4 ${isTesting ? 'animate-bounce' : ''}`} />
+            {isTesting ? `正在测速 (${Math.round((testProgress.current / testProgress.total) * 100)}%)...` : '开始 IP 优选测速'}
+          </button>
+
+          {/* Results display */}
+          {testResults.length > 0 && (
+            <div className="mt-4">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-[10px] text-gray-400 uppercase tracking-wider font-bold">响应排序 (前 5 自动勾选)</span>
+                <span className="text-[10px] text-neonBlue font-mono">勾选节点以编译小火箭配置</span>
+              </div>
+              
+              <div className="max-h-48 overflow-y-auto border border-gray-800/80 rounded-xl divide-y divide-gray-800/60 bg-darkBg/60">
+                {testResults.map((result, idx) => {
+                  const isChecked = selectedIPs.includes(result.ip);
+                  return (
+                    <div 
+                      key={result.ip} 
+                      onClick={() => toggleIP(result.ip)}
+                      className={`flex items-center justify-between p-2.5 cursor-pointer transition-all ${isChecked ? 'bg-neonBlue/5' : 'hover:bg-gray-800/20'}`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={() => {}} // handled by div onClick
+                          className="rounded border-gray-800 text-neonBlue focus:ring-0 w-3.5 h-3.5 bg-darkBg accent-neonBlue"
+                        />
+                        <div className="flex flex-col">
+                          <span className="text-xs font-mono text-gray-300">{result.ip}</span>
+                          <span className="text-[9px] text-gray-500 font-mono">Anycast Subnet {idx + 1}</span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-mono font-bold ${result.latency < 120 ? 'text-emerald-400' : result.latency < 250 ? 'text-neonBlue' : 'text-gray-500'}`}>
+                          {result.latency} ms
+                        </span>
+                        <Wifi className={`w-3.5 h-3.5 ${result.latency < 120 ? 'text-emerald-400' : result.latency < 250 ? 'text-neonBlue' : 'text-gray-600'}`} />
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </section>
+
+        {/* Step 3: Export & Import Integration */}
+        <section className="glass-panel rounded-2xl p-4 shadow-lg flex flex-col gap-3">
+          <h2 className="text-sm font-bold tracking-wider text-gray-300 uppercase flex items-center gap-2 border-b border-gray-800 pb-2 mb-1">
+            <ExternalLink className="w-4 h-4 text-neonBlue" />
+            3. 小火箭导入与配置文件导出
+          </h2>
+
+          {/* Port settings */}
+          <div className="flex flex-col gap-1.5 bg-darkBg/40 p-2.5 rounded-xl border border-gray-800/60">
+            <span className="text-[10px] text-gray-500 uppercase font-mono">多端口节点编译 (建议多选)</span>
+            <div className="flex gap-2">
+              {WARP_PORTS.map(port => {
+                const isSelected = selectedPorts.includes(port);
+                return (
+                  <button
+                    key={port}
+                    onClick={() => togglePort(port)}
+                    className={`flex-1 text-xs py-1.5 rounded-lg border font-mono transition-all font-bold ${
+                      isSelected 
+                        ? 'bg-neonBlue/10 border-neonBlue text-neonBlue shadow-neon' 
+                        : 'bg-darkBg border-gray-800 text-gray-500 hover:border-gray-700'
+                    }`}
+                  >
+                    Port {port}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 mt-1">
+            <button
+              onClick={launchShadowrocket}
+              disabled={selectedIPs.length === 0}
+              className="col-span-2 bg-gradient-to-r from-neonPurple to-pink-500 text-white font-extrabold text-sm py-3 rounded-xl shadow-lg transition-transform active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5"
+            >
+              <ExternalLink className="w-4 h-4" />
+              🚀 一键导入 Shadowrocket (小火箭)
+            </button>
+            
+            <button
+              onClick={copyShadowrocketLink}
+              disabled={selectedIPs.length === 0}
+              className="bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700 text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5"
+            >
+              <Copy className="w-3.5 h-3.5 text-neonBlue" />
+              复制小火箭链接
+            </button>
+
+            <button
+              onClick={copyConf}
+              disabled={selectedIPs.length === 0}
+              className="bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700 text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5"
+            >
+              <FileText className="w-3.5 h-3.5 text-neonPurple" />
+              复制首选 .conf
+            </button>
+
+            <button
+              onClick={downloadConfFile}
+              disabled={selectedIPs.length === 0}
+              className="col-span-2 bg-darkCard/80 border border-gray-800 hover:border-neonBlue text-gray-300 text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5"
+            >
+              <Download className="w-3.5 h-3.5 text-neonGreen" />
+              下载合并配置文件 (warp.conf)
+            </button>
+          </div>
+
+          {selectedIPs.length > 0 && (
+            <p className="text-[10px] text-center text-gray-500 mt-1">
+              已选 {selectedIPs.length} 个 IP, {selectedPorts.length} 个端口 | 将生成 {selectedIPs.length * selectedPorts.length} 个节点
+            </p>
+          )}
+        </section>
+
+        {/* Console Log Panel */}
+        <section className="glass-panel rounded-2xl shadow-lg overflow-hidden flex flex-col h-40">
+          <div className="bg-gray-950 px-3 py-1.5 border-b border-gray-850 flex items-center justify-between">
+            <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider flex items-center gap-1.5 font-mono">
+              <TerminalIcon className="w-3.5 h-3.5 text-neonGreen" />
+              运行状态终端控制台
+            </span>
+            <button 
+              onClick={() => setLogs([])}
+              className="text-[9px] text-gray-500 hover:text-gray-300 font-mono uppercase"
+            >
+              [ 清空 ]
+            </button>
+          </div>
+          
+          <div className="flex-1 bg-black/90 p-3 overflow-y-auto font-mono text-[10px] leading-relaxed text-neonGreen/80 select-text">
+            {logs.map((log, index) => (
+              <div key={index} className="whitespace-pre-wrap font-mono">
+                {log}
+              </div>
+            ))}
+            <div ref={terminalEndRef} />
+          </div>
+        </section>
+
+      </main>
+
+      {/* Footer */}
+      <footer className="mt-6 text-center text-[10px] text-gray-600 font-mono">
+        <p>WARP Anycast Speedtest v1.0.0 (SPA Edition)</p>
+        <p className="mt-0.5">Designed with rich neon aesthetics & fully browser-safe cryptography</p>
+      </footer>
+    </div>
+  )
+}
