@@ -462,7 +462,7 @@ export default function App() {
           WARP Speedtest
         </h1>
         <p className="text-xs text-gray-400 mt-1 font-sans">
-          为 iOS Shadowrocket 客户端一键优选 Cloudflare Anycast 节点
+          为 Shadowrocket 客户端一键优选 Cloudflare Anycast 节点
         </p>
       </header>
 
