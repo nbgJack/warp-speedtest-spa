@@ -142,29 +142,53 @@ export default function App() {
       locale: "zh_CN"
     }
 
+    const endpoints = [
+      { name: '直连方式', url: 'https://api.cloudflareclient.com/v0a2415/reg' },
+      { name: 'CORS 代理源 A', url: 'https://corsproxy.io/?https://api.cloudflareclient.com/v0a2415/reg' },
+      { name: 'CORS 代理源 B', url: 'https://api.codetabs.com/v1/proxy?quest=https://api.cloudflareclient.com/v0a2415/reg' }
+    ]
+
+    let response = null
+    let lastError = null
+
+    for (const endpoint of endpoints) {
+      addLog(`[*] 尝试使用 [${endpoint.name}] 进行注册...`)
+      try {
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 8000)
+
+        const res = await fetch(endpoint.url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json; charset=UTF-8',
+            'User-Agent': 'okhttp/3.12.1'
+          },
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        })
+
+        clearTimeout(timeoutId)
+
+        if (res.ok) {
+          response = res
+          addLog(`[+] [${endpoint.name}] 成功建立通道！`)
+          break
+        } else {
+          addLog(`[!] [${endpoint.name}] 响应状态错误: ${res.status}`)
+        }
+      } catch (err) {
+        addLog(`[!] [${endpoint.name}] 失败: ${err.message}`)
+        lastError = err
+      }
+    }
+
     try {
-      // Set short timeout for API fetch
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => controller.abort(), 8000)
-
-      const response = await fetch('https://api.cloudflareclient.com/v0a2415/reg', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          'User-Agent': 'okhttp/3.12.1'
-        },
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      })
-
-      clearTimeout(timeoutId)
-
-      if (!response.ok) {
-        throw new Error(`API 响应错误: 状态码 ${response.status}`)
+      if (!response) {
+        throw new Error(lastError ? lastError.message : '所有通道注册均被拒绝')
       }
 
       const data = await response.json()
-      addLog('[+] WARP API 注册响应成功！开始解析字段...')
+      addLog('[+] WARP API 注册成功！解析凭证字段...')
 
       // Extract details
       const peerKey = data.config?.peers?.[0]?.public_key || DEFAULT_PEER_KEY
@@ -205,9 +229,9 @@ export default function App() {
     } catch (error) {
       console.error(error)
       setRegistrationStatus('failed')
-      addLog('[!] WARP 账户注册失败 (可能是 CORS 限制或网络不可达)')
+      addLog('[!] WARP 账户注册彻底失败 (所有的代理通道均无法穿透 API)')
       addLog(`    └─ 错误原因: ${error.message}`)
-      addLog(`[!] 触发降级保护机制：使用本地标准默认参数 (Client IP: ${DEFAULT_ADDR_V4}, Reserved: 0,0,0)`)
+      addLog(`[!] 激活备用机制：强制使用本地标准默认参数 (Client IP: ${DEFAULT_ADDR_V4}, Reserved: 0,0,0)`)
       
       // Load standard defaults
       setPeerPublicKey(DEFAULT_PEER_KEY)
