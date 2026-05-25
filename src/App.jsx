@@ -482,6 +482,47 @@ export default function App() {
     addLog('[+] warp_anycast_optimized.conf 配置文件已下载')
   }
 
+  // Generate Clash Meta / Mihomo compatible YAML node block
+  const generateClashYaml = () => {
+    if (selectedIPs.length === 0 || selectedPorts.length === 0) return ''
+    
+    let yaml = '# Clash Meta / Mihomo 节点配置\n'
+    yaml += '# 请复制并粘贴至您 Clash 配置文件中的 proxies: 字段下\n\n'
+    
+    let idx = 1
+    selectedIPs.forEach(ip => {
+      selectedPorts.forEach(port => {
+        yaml += `  - name: "CF-WARP-优选${idx}-${port}"\n`
+        yaml += `    type: wireguard\n`
+        yaml += `    server: ${ip}\n`
+        yaml += `    port: ${port}\n`
+        yaml += `    ip: ${addressV4}\n`
+        yaml += `    ipv6: ${addressV6}\n`
+        yaml += `    private-key: ${privateKey}\n`
+        yaml += `    public-key: ${peerPublicKey}\n`
+        yaml += `    reserved: [${reserved}]\n`
+        yaml += `    udp: true\n`
+        yaml += `    remote-dns-resolve: true\n`
+        yaml += `    mtu: 1280\n\n`
+      })
+      idx++
+    })
+    
+    return yaml
+  }
+
+  // Copy Clash Meta config to clipboard
+  const copyClashConfig = () => {
+    const yaml = generateClashYaml()
+    if (!yaml) {
+      alert('请先选择至少一个 IP 和一个端口')
+      return
+    }
+    navigator.clipboard.writeText(yaml)
+    addLog('[+] Clash Meta (Mihomo) 节点配置已拷贝至剪贴板')
+    alert('Clash Meta (Mihomo) 节点配置已复制到剪贴板！可以直接粘贴进您的 Clash 配置文件 proxies 下。')
+  }
+
   return (
     <div className="min-h-screen bg-darkBg bg-grid flex flex-col items-center p-3 pb-8 md:p-6 text-gray-100">
       
@@ -595,6 +636,17 @@ export default function App() {
                     </h4>
                     <p className="text-[11px] mt-0.5 pl-2.5">
                       如果您拥有 WARP+ 订阅私钥和 Reserved，可切换到<b>【手动配置】</b>将它们填入。优选测速后，生成的所有小火箭节点都会完美套用您的 WARP+ 级别流量，速度和优先级更高。
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: 支持哪些客户端工具？(Clash / v2ray / Xray)
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5">
+                      本工具除了小火箭，还支持其它主流客户端：<br />
+                      1. <b>Clash Meta / Mihomo (如 Clash Verge / Nyanpasu)</b>：点击<b>“复制 Clash 配置”</b>即可将生成的 YAML 节点配置复制，直接粘贴进您 Clash 配置文件中的 <code>proxies:</code> 段下即可使用。<br />
+                      2. <b>v2rayN / v2rayNG / Sing-box / Xray</b>：这些工具原生支持导入标准 WireGuard 格式。您只需点击<b>“下载合并配置文件”</b>或<b>“复制首选 .conf”</b>，然后在客户端内直接导入得到的 <code>.conf</code> 文件即可。
                     </p>
                   </div>
                   <div>
@@ -913,12 +965,21 @@ export default function App() {
             </button>
 
             <button
+              onClick={copyClashConfig}
+              disabled={selectedIPs.length === 0}
+              className="bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700 text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5"
+            >
+              <Sliders className="w-3.5 h-3.5 text-neonBlue" />
+              复制 Clash 配置
+            </button>
+
+            <button
               onClick={downloadConfFile}
               disabled={selectedIPs.length === 0}
-              className="col-span-2 bg-darkCard/80 border border-gray-800 hover:border-neonBlue text-gray-300 text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5"
+              className="bg-darkCard/80 border border-gray-800 hover:border-neonBlue text-gray-300 text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5 text-neonGreen" />
-              下载合并配置文件 (warp.conf)
+              下载合并配置文件
             </button>
           </div>
 
