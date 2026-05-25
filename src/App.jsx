@@ -58,6 +58,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('auto') // 'auto' | 'manual'
   const [registrationStatus, setRegistrationStatus] = useState('idle') // 'idle' | 'registering' | 'success' | 'failed'
   const [showGuide, setShowGuide] = useState(false)
+  const [guideTab, setGuideTab] = useState('basic') // 'basic' | 'faq'
   
   // Benchmarking State
   const [concurrency, setConcurrency] = useState(25)
@@ -517,28 +518,96 @@ export default function App() {
           </button>
           
           {showGuide && (
-            <div className="mt-3 text-xs text-gray-400 space-y-3 border-t border-gray-800/60 pt-3 leading-relaxed">
-              <div className="flex gap-2">
-                <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">1</span>
-                <div>
-                  <p className="font-bold text-gray-300">配置账户凭证</p>
-                  <p className="text-[11px] mt-0.5">点击“注册账户”，网页会自动处理。如果因浏览器跨域安全策略导致注册失败，会显示“降级运行”并自动填充标准参数，这<b>完全不影响</b>后续使用，直接进行下一步即可。</p>
-                </div>
+            <div className="mt-3 border-t border-gray-800/60 pt-3">
+              {/* Tab Selector */}
+              <div className="flex bg-gray-900/60 p-0.5 rounded-lg border border-gray-800/80 mb-3">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setGuideTab('basic'); }}
+                  className={`flex-1 text-[11px] py-1 rounded-md font-medium transition-all ${guideTab === 'basic' ? 'bg-neonBlue text-darkBg shadow-sm font-bold' : 'text-gray-400'}`}
+                >
+                  基础操作步骤
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setGuideTab('faq'); }}
+                  className={`flex-1 text-[11px] py-1 rounded-md font-medium transition-all ${guideTab === 'faq' ? 'bg-neonPurple text-white shadow-sm font-bold' : 'text-gray-400'}`}
+                >
+                  进阶技巧 & 常见问题
+                </button>
               </div>
-              <div className="flex gap-2">
-                <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">2</span>
-                <div>
-                  <p className="font-bold text-gray-300">Anycast IP 优选测速</p>
-                  <p className="text-[11px] mt-0.5">建议测速前<b>关闭小火箭或其它 VPN</b> 以确保测得真实宽带延迟。点击“开始 IP 优选测速”，测试完成后延迟最低的前 5 个 IP 会被自动勾选。</p>
+
+              {guideTab === 'basic' ? (
+                <div className="text-xs text-gray-400 space-y-3 leading-relaxed">
+                  <div className="flex gap-2">
+                    <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">1</span>
+                    <div>
+                      <p className="font-bold text-gray-300">配置账户凭证</p>
+                      <p className="text-[11px] mt-0.5">点击“注册账户”，网页会自动处理。如果因浏览器跨域安全策略导致直连注册失败，会显示“降级运行”并通过 Cloudflare 边缘的云端代理重新成功注册，最终为您获取专属公钥和 Reserved 标识。</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">2</span>
+                    <div>
+                      <p className="font-bold text-gray-300">Anycast IP 优选测速</p>
+                      <p className="text-[11px] mt-0.5">建议测速前<b>关闭小火箭或其它 VPN</b> 以确保测得真实宽带延迟。点击“开始 IP 优选测速”，测试完成后延迟最低的前 5 个 IP 会被自动勾选。</p>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">3</span>
+                    <div>
+                      <p className="font-bold text-gray-300">导入小火箭配置</p>
+                      <p className="text-[11px] mt-0.5">勾选希望生成的端口（建议多选以获得更多备用节点），直接点击<b>“🚀 一键导入 Shadowrocket”</b>，网页会自动把优选节点复制到剪贴板并打开小火箭，弹出导入提示。</p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-2">
-                <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">3</span>
-                <div>
-                  <p className="font-bold text-gray-300">导入小火箭配置</p>
-                  <p className="text-[11px] mt-0.5">勾选希望生成的端口（建议多选以获得更多备用节点），直接点击<b>“🚀 一键导入 Shadowrocket”</b>，网页会自动唤起小火箭并将优选节点全数导入。</p>
+              ) : (
+                <div className="text-xs text-gray-400 space-y-3.5 leading-relaxed font-sans max-h-80 overflow-y-auto pr-1">
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: 为什么连上了节点但是没有网络？
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5">
+                      这通常是因为 <b>公钥未成功注册</b>（即直接使用未向 Cloudflare 服务器注册的本地默认凭证）或默认端口 <b>2408 被运营商阻断</b>。请务必使用“自动注册”成功获取您的专属公钥和 <b>Reserved</b> 值，若仍无网络，请更换节点端口（如 <b>4500</b> 或 <b>500</b>）重试。
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: 端口选择（Port）有什么讲究？
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5">
+                      默认端口 <b>2408</b> 是主要通道但容易被运营商特殊照顾。端口 <b>500</b> 和 <b>4500</b> 是常规 IPsec VPN 端口，具有极高的免墙优先级。若某个端口节点超时，切换其他端口可能瞬间复活。
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: 什么是 Reserved（保留字节）？
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5">
+                      它是 Cloudflare 识别账户流量的 3 字节标识 ID。必须在小火箭配置中携带（例如 <code>55,126,111</code>）。如果为 <code>0,0,0</code>，Cloudflare 会在您连接后极速限制速度或切断流量。
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: 如何升级为 WARP+ 账户？
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5">
+                      如果您拥有 WARP+ 订阅私钥和 Reserved，可切换到<b>【手动配置】</b>将它们填入。优选测速后，生成的所有小火箭节点都会完美套用您的 WARP+ 级别流量，速度和优先级更高。
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: 建议多久测速优选一次？
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5">
+                      Cloudflare 路由和国内网络环境是实时波动的。建议<b>每周</b>或感到速度下降时，重新运行一次网页优选测速并点击“一键导入”覆盖老节点，以确保连接的永远是最速通道。
+                    </p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
         </section>
