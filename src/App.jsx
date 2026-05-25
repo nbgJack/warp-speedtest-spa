@@ -143,6 +143,7 @@ export default function App() {
     }
 
     const endpoints = [
+      { name: '云端代理 (CF Pages)', url: '/api/register' },
       { name: '直连方式', url: 'https://api.cloudflareclient.com/v0a2415/reg' },
       { name: 'CORS 代理源 A', url: 'https://corsproxy.io/?https://api.cloudflareclient.com/v0a2415/reg' },
       { name: 'CORS 代理源 B', url: 'https://api.codetabs.com/v1/proxy?quest=https://api.cloudflareclient.com/v0a2415/reg' }
