@@ -392,27 +392,32 @@ export default function App() {
       return
     }
     
-    const base64Content = btoa(unescape(encodeURIComponent(subContent)))
-    const shadowrocketUrl = `shadowrocket://add/${base64Content}`
-    
-    navigator.clipboard.writeText(shadowrocketUrl)
-    addLog(`[+] 小火箭合并导入链接已拷贝至剪贴板!`)
-    alert('小火箭导入链接已复制！您可以直接粘贴到小火箭，或点击“立即导入”直接唤起 APP。')
+    // Copy the raw wireguard:// URLs list to clipboard (Shadowrocket detects this format instantly)
+    navigator.clipboard.writeText(subContent)
+    addLog(`[+] 优选 WireGuard 节点链接列表已拷贝至剪贴板!`)
+    alert('节点链接已成功复制到剪贴板！请直接打开小火箭，软件将自动识别并弹窗提示导入。')
   }
 
   // Launch Shadowrocket (Direct URL scheme redirect)
-  const launchShadowrocket = () => {
+  const launchShadowrocket = async () => {
     const subContent = getSubContent()
     if (!subContent) {
       alert('请先选择至少一个 IP 和一个端口')
       return
     }
     
-    const base64Content = btoa(unescape(encodeURIComponent(subContent)))
-    const shadowrocketUrl = `shadowrocket://add/${base64Content}`
-    
-    addLog(`[*] 正在通过 URL Scheme 唤起 Shadowrocket 并导入...`)
-    window.location.href = shadowrocketUrl
+    addLog(`[*] 正在复制配置并尝试唤起 Shadowrocket...`)
+    try {
+      // Write the raw wireguard:// URLs list to clipboard
+      await navigator.clipboard.writeText(subContent)
+      addLog(`[+] 节点数据已写入剪贴板，正在唤起小火箭...`)
+      
+      // Launch Shadowrocket app. When it opens, it reads the clipboard and prompts to import.
+      window.location.href = 'shadowrocket://'
+    } catch (e) {
+      addLog(`[!] 自动唤起失败: ${e.message}，已自动拷贝，请手动打开小火箭即可。`)
+      alert('已复制配置！请手动打开小火箭，软件将自动识别剪贴板。')
+    }
   }
 
   // Compile combined .conf text file
