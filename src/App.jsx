@@ -1164,7 +1164,7 @@ export default function App() {
       {/* Footer */}
       <footer className="mt-6 text-center text-[10px] text-gray-600 font-mono">
         <p>WARP Anycast Speedtest v1.0.0 (SPA Edition)</p>
-        <p className="mt-0.5">Designed with rich neon aesthetics & fully browser-safe cryptography</p>
+        <p className="mt-0.5">Licensed under GNU AGPLv3 | Designed with rich neon aesthetics & fully browser-safe cryptography</p>
       </footer>
     </div>
   )
