@@ -482,14 +482,51 @@ export default function App() {
     addLog('[+] warp_anycast_optimized.conf 配置文件已下载')
   }
 
-  // Generate Clash Meta / Mihomo compatible YAML node block
+  // Generate Clash Meta / Mihomo compatible full YAML configuration profile
   const generateClashYaml = () => {
     if (selectedIPs.length === 0 || selectedPorts.length === 0) return ''
     
-    let yaml = '# Clash Meta / Mihomo 节点配置\n'
-    yaml += '# 请复制并粘贴至您 Clash 配置文件中的 proxies: 字段下\n\n'
-    
+    // List of node names for inclusion in proxy groups
+    const nodeNames = []
     let idx = 1
+    selectedIPs.forEach(ip => {
+      selectedPorts.forEach(port => {
+        nodeNames.push(`CF-WARP-优选${idx}-${port}`)
+      })
+      idx++
+    })
+
+    let yaml = `# =========================================================\n`
+    yaml += `# Clash Meta (Mihomo) 完整配置文件 - 优选 WARP 节点版\n`
+    yaml += `# =========================================================\n\n`
+    
+    // Global settings
+    yaml += `mixed-port: 7890\n`
+    yaml += `allow-lan: true\n`
+    yaml += `mode: rule\n`
+    yaml += `log-level: info\n`
+    yaml += `ipv6: true\n\n`
+    
+    // DNS settings
+    yaml += `dns:\n`
+    yaml += `  enable: true\n`
+    yaml += `  ipv6: true\n`
+    yaml += `  listen: 0.0.0.0:53\n`
+    yaml += `  enhanced-mode: fake-ip\n`
+    yaml += `  fake-ip-range: 198.18.0.1/16\n`
+    yaml += `  default-nameserver:\n`
+    yaml += `    - 223.5.5.5\n`
+    yaml += `    - 114.114.114.114\n`
+    yaml += `  nameserver:\n`
+    yaml += `    - https://dns.alidns.com/dns-query\n`
+    yaml += `    - https://doh.pub/dns-query\n`
+    yaml += `  fallback:\n`
+    yaml += `    - https://1.1.1.1/dns-query\n`
+    yaml += `    - https://8.8.8.8/dns-query\n\n`
+
+    // Proxies definition
+    yaml += `proxies:\n`
+    idx = 1
     selectedIPs.forEach(ip => {
       selectedPorts.forEach(port => {
         yaml += `  - name: "CF-WARP-优选${idx}-${port}"\n`
@@ -503,11 +540,61 @@ export default function App() {
         yaml += `    reserved: [${reserved}]\n`
         yaml += `    udp: true\n`
         yaml += `    remote-dns-resolve: true\n`
-        yaml += `    mtu: 1280\n\n`
+        yaml += `    mtu: 1280\n`
       })
       idx++
     })
+    yaml += `\n`
+
+    // Proxy Groups definition
+    yaml += `proxy-groups:\n`
+    yaml += `  - name: "🚀 节点选择"\n`
+    yaml += `    type: select\n`
+    yaml += `    proxies:\n`
+    yaml += `      - "⚡ 自动选择"\n`
+    yaml += `      - "DIRECT"\n`
+    nodeNames.forEach(name => {
+      yaml += `      - "${name}"\n`
+    })
+    yaml += `\n`
     
+    yaml += `  - name: "⚡ 自动选择"\n`
+    yaml += `    type: url-test\n`
+    yaml += `    url: http://cp.cloudflare.com/generate_204\n`
+    yaml += `    interval: 300\n`
+    yaml += `    tolerance: 50\n`
+    yaml += `    proxies:\n`
+    nodeNames.forEach(name => {
+      yaml += `      - "${name}"\n`
+    })
+    yaml += `\n`
+
+    // Routing Rules definition
+    yaml += `rules:\n`
+    yaml += `  # 广告拦截\n`
+    yaml += `  - DOMAIN-SUFFIX,ads.com,REJECT\n`
+    yaml += `  - DOMAIN-KEYWORD,adserver,REJECT\n`
+    yaml += `  # Telegram 规则\n`
+    yaml += `  - IP-CIDR,91.108.4.0/22,🚀 节点选择,no-resolve\n`
+    yaml += `  - IP-CIDR,91.108.56.0/22,🚀 节点选择,no-resolve\n`
+    yaml += `  - IP-CIDR,149.154.160.0/20,🚀 节点选择,no-resolve\n`
+    yaml += `  # 常见国外服务（走代理）\n`
+    yaml += `  - DOMAIN-SUFFIX,google.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,github.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,youtube.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,twitter.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,x.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,instagram.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,facebook.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,netflix.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,chatgpt.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,openai.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,cloudflare.com,🚀 节点选择\n`
+    yaml += `  - DOMAIN-SUFFIX,cloudflareclient.com,🚀 节点选择\n`
+    yaml += `  # 国内流量绕过（直连）\n`
+    yaml += `  - GEOIP,CN,DIRECT\n`
+    yaml += `  - MATCH,🚀 节点选择\n`
+
     return yaml
   }
 
@@ -519,8 +606,28 @@ export default function App() {
       return
     }
     navigator.clipboard.writeText(yaml)
-    addLog('[+] Clash Meta (Mihomo) 节点配置已拷贝至剪贴板')
-    alert('Clash Meta (Mihomo) 节点配置已复制到剪贴板！可以直接粘贴进您的 Clash 配置文件 proxies 下。')
+    addLog('[+] Clash Meta (Mihomo) 完整配置文件已拷贝至剪贴板')
+    alert('Clash 完整配置文件已复制到剪贴板！可以直接粘贴创建新的 Clash 配置文件使用。')
+  }
+
+  // Download Clash Meta .yaml profile file
+  const downloadClashYaml = () => {
+    const yaml = generateClashYaml()
+    if (!yaml) {
+      alert('请先选择至少一个 IP 和一个端口')
+      return
+    }
+    
+    const blob = new Blob([yaml], { type: 'text/yaml;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'clash_warp_optimized.yaml'
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    addLog('[+] clash_warp_optimized.yaml 配置文件已下载')
   }
 
   return (
@@ -970,7 +1077,7 @@ export default function App() {
               className="bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700 text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5"
             >
               <Sliders className="w-3.5 h-3.5 text-neonBlue" />
-              复制 Clash 配置
+              复制 Clash 完整配置
             </button>
 
             <button
@@ -979,7 +1086,16 @@ export default function App() {
               className="bg-darkCard/80 border border-gray-800 hover:border-neonBlue text-gray-300 text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5"
             >
               <Download className="w-3.5 h-3.5 text-neonGreen" />
-              下载合并配置文件
+              下载合并 .conf 文件
+            </button>
+
+            <button
+              onClick={downloadClashYaml}
+              disabled={selectedIPs.length === 0}
+              className="col-span-2 bg-neonPurple/10 border border-neonPurple hover:bg-neonPurple/20 text-neonPurple text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5 shadow-neonPurple"
+            >
+              <Download className="w-3.5 h-3.5 text-neonPurple" />
+              下载 Clash Meta 完整配置 (.yaml)
             </button>
           </div>
 
