@@ -650,6 +650,25 @@ export default function App() {
       {/* Main Grid Layout */}
       <main className="w-full max-w-lg flex flex-col gap-4 flex-1">
         
+        {/* RMS Philosophical Banner */}
+        <section className="glass-panel rounded-2xl p-4 border border-neonPurple/30 bg-darkCard/40 relative overflow-hidden shadow-lg">
+          <div className="absolute top-0 right-0 w-24 h-24 bg-neonPurple/5 rounded-full blur-2xl" />
+          <div className="flex gap-3">
+            <div className="flex-shrink-0 flex items-start justify-center mt-0.5">
+              <span className="w-2 h-2 rounded-full bg-neonPurple animate-pulse shadow-neonPurple" />
+            </div>
+            <div className="flex flex-col text-xs leading-relaxed text-gray-300 font-sans">
+              <p className="italic text-gray-400">
+                “自由软件是关乎自由，而非价格。要理解这个概念，你应该想到‘言论自由’（Free Speech），而不是‘免费啤酒’（Free Beer）。”
+              </p>
+              <p className="text-[10px] text-neonPurple font-bold mt-1 text-right font-mono">—— Richard M. Stallman (理查德·M·斯托曼)</p>
+              <p className="border-t border-gray-800/80 mt-2 pt-2 text-[11px] text-gray-400">
+                本工具是完全自由的软件。我们通过公开源码并使用 <span className="text-neonBlue font-semibold">GNU AGPLv3</span> 协议，坚决捍卫每一位使用者的计算自由。
+              </p>
+            </div>
+          </div>
+        </section>
+        
         {/* Collapsible Guide */}
         <section className="glass-panel rounded-2xl p-4 shadow-lg transition-all duration-300">
           <button 
@@ -792,6 +811,40 @@ export default function App() {
                     <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
                       Cloudflare 节点的网络状态与您本地网络是随时波动的。建议<b>每隔一到两周</b>，或者在感到连接变慢时，重新打开本站进行一次“IP优选测速”并一键覆盖导入，以维持在最优的网络节点上。
                     </p>
+                  </div>
+
+                  <div className="border-t border-gray-800/60 pt-3 mt-3">
+                    <span className="text-[10px] text-neonPurple font-bold uppercase tracking-wider block mb-2 font-mono">Free Software Philosophy / 自由软件哲学</span>
+                    
+                    <div className="space-y-3.5">
+                      <div>
+                        <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-neonBlue" />
+                          Q: 为什么本工具一定要使用 GNU AGPLv3 协议？
+                        </h4>
+                        <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                          传统的 GPL 协议存在一个“服务提供商漏洞”（SaaS Loophole）——如果有人修改了自由软件并将其部署在云端服务器上供他人通过网络使用，他们不需要向用户公开修改后的源码。为了彻底堵死这个剥夺用户自由的漏洞，我们采用了 <b>GNU 仿照通用公共许可证 (GNU AGPLv3)</b>。根据此协议，任何在网络服务器上运行、托管本软件修改版的人，<b>都必须向网络用户无条件提供该版本的完整源代码</b>。我们以此确保本软件的任何衍生版本都永远保持自由，无法被任何人私有化或用于监视用户。
+                        </p>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-neonBlue" />
+                          Q: 为什么我们需要在本地浏览器中运行密码学算法？
+                        </h4>
+                        <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                          许多所谓的“云端助手”会要求你将私钥或凭证上传到它们的服务器上进行注册，这无异于将你的手铐钥匙交给陌生人。你的密码学计算必须由你自己的机器执行！本工具使用标准 Curve25519 (X25519) 算法，所有的私钥生成、账户注册计算全部在你的浏览器沙盒中本地完成。你的计算，应当且必须由你完全控制。
+                        </p>
+                      </div>
+                      <div>
+                        <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                          <span className="w-1.5 h-1.5 rounded-full bg-neonBlue" />
+                          Q: 为什么我们坚持叫它 “GNU/Linux” 和 “Free Software”？
+                        </h4>
+                        <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                          正确的命名是捍卫思想的第一步。我们称之为 <b>自由软件 (Free Software)</b>，而不是“开源软件 (Open Source)”，因为“开源”仅仅关注实用主义 and 开发效率，而“自由”关注的是人类基本的自主权与合作精神。如果你在使用安卓或其它类似系统，请记住它们底层是建立在 Linux 核心之上的，但我们更应该尊重那些捍卫了我们核心自由的 GNU 项目贡献。
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}
@@ -1164,7 +1217,7 @@ export default function App() {
       {/* Footer */}
       <footer className="mt-6 text-center text-[10px] text-gray-600 font-mono">
         <p>WARP Anycast Speedtest v1.0.0 (SPA Edition)</p>
-        <p className="mt-0.5">Licensed under GNU AGPLv3 | Designed with rich neon aesthetics & fully browser-safe cryptography</p>
+        <p className="mt-0.5">Defending software freedom under the GNU AGPLv3 | Your computer, your computation.</p>
       </footer>
     </div>
   )
