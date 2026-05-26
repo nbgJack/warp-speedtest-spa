@@ -757,14 +757,14 @@ export default function App() {
                         <p className="font-bold text-gray-300">📱 1. Shadowrocket (小火箭 - iOS)</p>
                         <p className="mt-0.5">
                           <b>一键导入</b>：点击页面底部【一键导入 Shadowrocket】即可自动唤醒小火箭并弹出“检测到配置链接”导入提示。<br />
-                          <b>测试延迟</b>：因小火箭默认是 TCP 测试且 WireGuard 为 UDP 协议，请先进入小火箭的<b>【设置 -> 测试方法 -> 改为 ICMP/Ping】</b>，返回主页点击“连通性测试”即可成功测出延迟。
+                          <b>测试延迟</b>：因小火箭默认是 TCP 测试且 WireGuard 为 UDP 协议，请先进入小火箭的<b>【设置 → 测试方法 → 改为 ICMP/Ping】</b>，返回主页点击“连通性测试”即可成功测出延迟。
                         </p>
                       </div>
 
                       <div className="border-l-2 border-neonBlue/40 pl-2 py-0.5">
                         <p className="font-bold text-gray-300">💻 2. Clash Meta/Mihomo (如 Clash Verge / Nyanpasu - PC/Mac)</p>
                         <p className="mt-0.5">
-                          <b>导入步骤</b>：点击【下载 Clash Meta 完整配置 (.yaml)】下载文件。打开 Clash 客户端 -> 进入 <b>Profiles (配置)</b> 页面 -> 将下载好的 <code>.yaml</code> 文件拖入或导入 -> 选中并双击启用该配置。<br />
+                          <b>导入步骤</b>：点击【下载 Clash Meta 完整配置 (.yaml)】下载文件。打开 Clash 客户端 → 进入 <b>Profiles (配置)</b> 页面 → 将下载好的 <code>.yaml</code> 文件拖入或导入 → 选中并双击启用该配置。<br />
                           <b>分流策略</b>：配置内已内置中国流量直连（绕过）和国外流量代理的分流规则。在代理分组中推荐勾选 <b>【⚡ 自动选择】</b>，小火箭/Clash 会每 5 分钟自动切换到延迟最低的最速 WARP 节点。
                         </p>
                       </div>
@@ -772,8 +772,8 @@ export default function App() {
                       <div className="border-l-2 border-neonBlue/40 pl-2 py-0.5">
                         <p className="font-bold text-gray-300">🖥️ 3. v2rayN (Windows) / v2rayNG (Android)</p>
                         <p className="mt-0.5">
-                          <b>v2rayN (电脑端)</b>：点击【下载合并 .conf 文件】。打开客户端 -> 点击顶部 <b>【服务器】</b> -> <b>【添加自定义配置服务器】</b> -> 在“文件路径”中浏览并选中刚下载的 <code>.conf</code> 文件 -> “Core 类型”下拉选择 <b>Xray</b> -> 点击确定保存即可。<br />
-                          <b>v2rayNG (手机端)</b>：同样下载 <code>.conf</code> 文件并传到手机上。打开 app -> 点击右上角 <b>【+】</b> -> 选择 <b>【导入自定义配置】</b> -> 导入该 <code>.conf</code> 即可。<br />
+                          <b>v2rayN (电脑端)</b>：点击【下载合并 .conf 文件】。打开客户端 → 点击顶部 <b>【服务器】</b> → <b>【添加自定义配置服务器】</b> → 在“文件路径”中浏览并选中刚下载的 <code>.conf</code> 文件 → “Core 类型”下拉选择 <b>Xray</b> → 点击确定保存即可。<br />
+                          <b>v2rayNG (手机端)</b>：同样下载 <code>.conf</code> 文件并传到手机上。打开 app → 点击右上角 <b>【+】</b> → 选择 <b>【导入自定义配置】</b> → 导入该 <code>.conf</code> 即可。<br />
                           <b>快捷导入（链接方式）</b>：在网页点击【复制小火箭链接】后，在 v2rayN/v2rayNG 界面直接快捷键 <b>Ctrl+V</b> 或选择<b>“从剪贴板批量导入”</b>亦可成功生成 WireGuard 节点。
                         </p>
                       </div>
