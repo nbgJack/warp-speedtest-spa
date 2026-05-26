@@ -702,20 +702,66 @@ export default function App() {
                   <div className="flex gap-2">
                     <span className="bg-neonBlue/10 text-neonBlue w-5 h-5 rounded-full flex items-center justify-center font-bold flex-shrink-0 text-[10px] font-mono">3</span>
                     <div>
-                      <p className="font-bold text-gray-300">导入小火箭配置</p>
-                      <p className="text-[11px] mt-0.5">勾选希望生成的端口（建议多选以获得更多备用节点），直接点击<b>“🚀 一键导入 Shadowrocket”</b>，网页会自动把优选节点复制到剪贴板并打开小火箭，弹出导入提示。</p>
+                      <p className="font-bold text-gray-300">导入客户端使用</p>
+                      <p className="text-[11px] mt-0.5">勾选希望生成的端口（建议多选以获得更多备用节点），iOS 用户直接点击<b>“🚀 一键导入 Shadowrocket”</b>。PC/Mac/Android 用户可选择下载 Clash Meta YAML 配置文件或通用 .conf 文件。</p>
                     </div>
                   </div>
                 </div>
               ) : (
-                <div className="text-xs text-gray-400 space-y-3.5 leading-relaxed font-sans max-h-80 overflow-y-auto pr-1">
+                <div className="text-xs text-gray-400 space-y-3.5 leading-relaxed font-sans max-h-96 overflow-y-auto pr-1">
                   <div>
                     <h4 className="font-bold text-gray-200 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
-                      Q: 为什么连上了节点但是没有网络？
+                      Q: 为什么小火箭导入后点击“TCP测试”显示超时/没有延迟？
                     </h4>
-                    <p className="text-[11px] mt-0.5 pl-2.5">
-                      这通常是因为 <b>公钥未成功注册</b>（即直接使用未向 Cloudflare 服务器注册的本地默认凭证）或默认端口 <b>2408 被运营商阻断</b>。请务必使用“自动注册”成功获取您的专属公钥和 <b>Reserved</b> 值，若仍无网络，请更换节点端口（如 <b>4500</b> 或 <b>500</b>）重试。
+                    <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                      <b>原因</b>：WireGuard 协议属于纯 <b>UDP 协议</b>，不支持普通的 TCP 连接测试。因此在小火箭中直接进行默认的“TCP测试”必然会显示超时或无延迟。<br />
+                      <b>解决方法</b>：在小火箭主界面点击右下角 <b>【设置】</b> → <b>【测试方法】</b> → 选择 <b>【ICMP】</b>（即 Ping 测试）。返回首页后，再次点击节点的“连通性测试”或者点击节点右侧，就能成功测出真实的物理延迟了。
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: 虽然测试延迟有几百毫秒，但是看油管/网页为什么很流畅？
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                      <b>延迟不等于带宽</b>。Cloudflare 拥有极度庞大的全球 Anycast 边缘网络。虽然中国直连节点在握手建立连接时物理延迟在 150ms-300ms 左右，但一旦隧道握手建立完成，其实际吞吐带宽和多路并发性能非常强劲，观看 4K YouTube 视频、刷推、浏览日常网页或者进行文件下载都完全没有阻碍。
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: 支持安卓（Android）手机吗？有专门的安卓客户端 APP 吗？
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                      <b>完美支持</b>。本站是一个纯网页优选工具，不需要额外下载本站的专属 APP（避免占用后台与空间），直接配合安卓端成熟的主流代理客户端即可使用：<br />
+                      - <b>v2rayNG (推荐)</b>：测速后，点击【复制小火箭链接】，在 v2rayNG 主界面点击右上角“+”号选择“从剪贴板导入”即可一键导入 WireGuard 节点；或者点击【下载合并 .conf 文件】，在 v2rayNG 中点击“+”号选择“导入自定义配置”读入此 conf 文件。<br />
+                      - <b>Clash Meta / Mihomo Android</b>：直接在测速后点击【下载 Clash Meta 完整配置 (.yaml)】，将文件保存到手机，在 Clash 客户端 Profiles (配置) 中导入使用即可。<br />
+                      - <b>Sing-box Android</b>：支持导入由本站 WireGuard 配置转换或直接编写的配置。
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: Clash 配置文件直接导入能用吗？有什么规则？
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                      <b>直接导入即可使用，且内置了完整的智能分流规则</b>。本站提供的 Clash 完整配置文件（.yaml）已内置：<br />
+                      1. <b>DNS 配置</b>：采用 Fake-IP 模式，国内域名使用阿里/腾讯 DNS 直连解析，国外域名代理防污染解析。<br />
+                      2. <b>策略组（⚡ 自动选择）</b>：自动将您选中的优质 IP 进行 url-test 测速，每 5 分钟自动切换至最快节点，无需手动干预。<br />
+                      3. <b>分流规则</b>：内置 GeoIP 规则，国内的全部软件/网站自动直连（不消耗任何代理流量），国外的服务（如 Google、YouTube、Twitter、GitHub、ChatGPT 等）自动分流走优选后的 WARP 节点。
+                    </p>
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
+                      Q: 为什么连上了节点但却打不开网页？
+                    </h4>
+                    <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                      这通常是由以下原因导致的：<br />
+                      1. <b>公钥未激活</b>：如果使用手动配置填入了未向 Cloudflare 成功注册的公钥，握手会失败。请使用“自动注册”重新生成并激活凭证。<br />
+                      2. <b>端口 2408 被运营商封锁</b>：部分地区运营商对 2408 端口的 UDP 流量进行了限制或丢包。请在下方勾选 500、1701、4500 等备用端口，重新生成并导入，更换端口即可连通。<br />
+                      3. <b>Reserved 丢失</b>：如果没有携带 Reserved 保留字节或值为 <code>0,0,0</code>，可能会很快被 Cloudflare 限制握手，请确保使用了自动注册获取的专属保留值。
                     </p>
                   </div>
                   <div>
@@ -723,8 +769,10 @@ export default function App() {
                       <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
                       Q: 端口选择（Port）有什么讲究？
                     </h4>
-                    <p className="text-[11px] mt-0.5 pl-2.5">
-                      默认端口 <b>2408</b> 是主要通道但容易被运营商特殊照顾。端口 <b>500</b> 和 <b>4500</b> 是常规 IPsec VPN 端口，具有极高的免墙优先级。若某个端口节点超时，切换其他端口可能瞬间复活。
+                    <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                      - <b>2408</b> 是 WARP 官方默认的专用端口，但容易受部分地区运营商特殊照顾。<br />
+                      - <b>500</b> 和 <b>4500</b> 是常规 IPsec VPN 协议的标准系统端口，运营商通常会无条件放行，具有极高的穿透成功率。<br />
+                      - <b>1701</b> 也是常规 VPN 端口。强烈建议生成配置时将这四个端口<b>全部勾选</b>，这样会在客户端中生成多条线路备用。
                     </p>
                   </div>
                   <div>
@@ -732,60 +780,17 @@ export default function App() {
                       <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
                       Q: 什么是 Reserved（保留字节）？
                     </h4>
-                    <p className="text-[11px] mt-0.5 pl-2.5">
-                      它是 Cloudflare 识别账户流量的 3 字节标识 ID。必须在小火箭配置中携带（例如 <code>55,126,111</code>）。如果为 <code>0,0,0</code>，Cloudflare 会在您连接后极速限制速度或切断流量。
+                    <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                      它是 Cloudflare 识别账户流量和鉴权的 3 字节特定标识码。必须在客户端配置的 <code>reserved = [x, y, z]</code> 中填入。若留空或设为 <code>0,0,0</code>，虽然有时能通，但在流量增大后会被 Cloudflare 主动断开或严重限速。
                     </p>
                   </div>
                   <div>
                     <h4 className="font-bold text-gray-200 flex items-center gap-1">
                       <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
-                      Q: 如何升级为 WARP+ 账户？
+                      Q: 建议多久进行一次优选？
                     </h4>
-                    <p className="text-[11px] mt-0.5 pl-2.5">
-                      如果您拥有 WARP+ 订阅私钥和 Reserved，可切换到<b>【手动配置】</b>将它们填入。优选测速后，生成的所有小火箭节点都会完美套用您的 WARP+ 级别流量，速度和优先级更高。
-                    </p>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
-                      Q: 支持哪些客户端工具？如何导入使用？(小白保姆级教程)
-                    </h4>
-                    <div className="text-[11px] mt-1 pl-2.5 space-y-2 text-gray-400">
-                      <p>本工具已全平台兼容，支持以下三类主流代理软件：</p>
-                      
-                      <div className="border-l-2 border-neonBlue/40 pl-2 py-0.5">
-                        <p className="font-bold text-gray-300">📱 1. Shadowrocket (小火箭 - iOS)</p>
-                        <p className="mt-0.5">
-                          <b>一键导入</b>：点击页面底部【一键导入 Shadowrocket】即可自动唤醒小火箭并弹出“检测到配置链接”导入提示。<br />
-                          <b>测试延迟</b>：因小火箭默认是 TCP 测试且 WireGuard 为 UDP 协议，请先进入小火箭的<b>【设置 → 测试方法 → 改为 ICMP/Ping】</b>，返回主页点击“连通性测试”即可成功测出延迟。
-                        </p>
-                      </div>
-
-                      <div className="border-l-2 border-neonBlue/40 pl-2 py-0.5">
-                        <p className="font-bold text-gray-300">💻 2. Clash Meta/Mihomo (如 Clash Verge / Nyanpasu - PC/Mac)</p>
-                        <p className="mt-0.5">
-                          <b>导入步骤</b>：点击【下载 Clash Meta 完整配置 (.yaml)】下载文件。打开 Clash 客户端 → 进入 <b>Profiles (配置)</b> 页面 → 将下载好的 <code>.yaml</code> 文件拖入或导入 → 选中并双击启用该配置。<br />
-                          <b>分流策略</b>：配置内已内置中国流量直连（绕过）和国外流量代理的分流规则。在代理分组中推荐勾选 <b>【⚡ 自动选择】</b>，小火箭/Clash 会每 5 分钟自动切换到延迟最低的最速 WARP 节点。
-                        </p>
-                      </div>
-
-                      <div className="border-l-2 border-neonBlue/40 pl-2 py-0.5">
-                        <p className="font-bold text-gray-300">🖥️ 3. v2rayN (Windows) / v2rayNG (Android)</p>
-                        <p className="mt-0.5">
-                          <b>v2rayN (电脑端)</b>：点击【下载合并 .conf 文件】。打开客户端 → 点击顶部 <b>【服务器】</b> → <b>【添加自定义配置服务器】</b> → 在“文件路径”中浏览并选中刚下载的 <code>.conf</code> 文件 → “Core 类型”下拉选择 <b>Xray</b> → 点击确定保存即可。<br />
-                          <b>v2rayNG (手机端)</b>：同样下载 <code>.conf</code> 文件并传到手机上。打开 app → 点击右上角 <b>【+】</b> → 选择 <b>【导入自定义配置】</b> → 导入该 <code>.conf</code> 即可。<br />
-                          <b>快捷导入（链接方式）</b>：在网页点击【复制小火箭链接】后，在 v2rayN/v2rayNG 界面直接快捷键 <b>Ctrl+V</b> 或选择<b>“从剪贴板批量导入”</b>亦可成功生成 WireGuard 节点。
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <div>
-                    <h4 className="font-bold text-gray-200 flex items-center gap-1">
-                      <span className="w-1.5 h-1.5 rounded-full bg-neonPurple" />
-                      Q: 建议多久测速优选一次？
-                    </h4>
-                    <p className="text-[11px] mt-0.5 pl-2.5">
-                      Cloudflare 路由和国内网络环境是实时波动的。建议<b>每周</b>或感到速度下降时，重新运行一次网页优选测速并点击“一键导入”覆盖老节点，以确保连接的永远是最速通道。
+                    <p className="text-[11px] mt-0.5 pl-2.5 text-gray-400">
+                      Cloudflare 节点的网络状态与您本地网络是随时波动的。建议<b>每隔一到两周</b>，或者在感到连接变慢时，重新打开本站进行一次“IP优选测速”并一键覆盖导入，以维持在最优的网络节点上。
                     </p>
                   </div>
                 </div>
