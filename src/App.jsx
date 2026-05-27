@@ -356,73 +356,68 @@ export default function App() {
     )
   }
 
-  // Compile individual WireGuard URL for Shadowrocket
-  const compileNodeLink = (ip, port, idx) => {
-    const alias = `CF-WARP-优选${idx}-端口${port}`
-    
-    const encPriv = encodeURIComponent(privateKey)
-    const encPub = encodeURIComponent(peerPublicKey)
-    const encAddr = encodeURIComponent(`${addressV4}/32`)
-    const encAlias = encodeURIComponent(alias)
-    
-    // Build link with maximum client compatibility
-    return `wireguard://${encPriv}@${ip}:${port}?privateKey=${encPriv}&privatekey=${encPriv}&publicKey=${encPub}&publickey=${encPub}&address=${encAddr}&ip=${encAddr}&mru=1280&mtu=1280&reserved=${reserved}#${encAlias}`
+  // Generate a single standard WireGuard .conf block for one node
+  const generateSingleConf = (ip, port, nodeName) => {
+    let conf = ''
+    conf += `[Interface]\n`
+    conf += `PrivateKey = ${privateKey}\n`
+    conf += `Address = ${addressV4}/32, ${addressV6}/128\n`
+    conf += `DNS = 1.1.1.1, 8.8.8.8\n`
+    conf += `MTU = 1280\n\n`
+    conf += `[Peer]\n`
+    conf += `PublicKey = ${peerPublicKey}\n`
+    conf += `AllowedIPs = 0.0.0.0/0, ::/0\n`
+    conf += `Endpoint = ${ip}:${port}\n`
+    // Reserved bytes for Cloudflare WARP identity
+    if (reserved && reserved !== '0,0,0') {
+      conf += `Reserved = ${reserved}\n`
+    }
+    return conf
   }
 
-  // Generate Shadowrocket Subscription payload (Base64 list of links)
-  const getSubContent = () => {
+  // Generate the first (best) node conf for quick clipboard import
+  const getBestNodeConf = () => {
     if (selectedIPs.length === 0 || selectedPorts.length === 0) return ''
-    
-    const links = []
-    let idx = 1
-    selectedIPs.forEach(ip => {
-      selectedPorts.forEach(port => {
-        links.push(compileNodeLink(ip, port, idx))
-      })
-      idx++
-    })
-    
-    return links.join('\n')
+    return generateSingleConf(selectedIPs[0], selectedPorts[0], 'CF-WARP-优选1')
   }
 
-  // Copy shadowrocket direct import link to clipboard
-  const copyShadowrocketLink = () => {
-    const subContent = getSubContent()
-    if (!subContent) {
+  // Copy one standard .conf to clipboard for Shadowrocket import
+  const copyShadowrocketConf = () => {
+    const conf = getBestNodeConf()
+    if (!conf) {
       alert('请先选择至少一个 IP 和一个端口')
       return
     }
-    
-    // Copy the raw wireguard:// URLs list to clipboard (Shadowrocket detects this format instantly)
-    navigator.clipboard.writeText(subContent)
-    addLog(`[+] 优选 WireGuard 节点链接列表已拷贝至剪贴板!`)
-    alert('节点链接已成功复制到剪贴板！请直接打开小火箭，软件将自动识别并弹窗提示导入。')
+    navigator.clipboard.writeText(conf)
+    addLog(`[+] 首选节点 WireGuard 配置 (.conf 格式) 已拷贝至剪贴板`)
+    addLog(`    └─ 节点: ${selectedIPs[0]}:${selectedPorts[0]}`)
+    alert('首选节点配置已复制到剪贴板！\n\n请打开小火箭，软件将自动检测剪贴板并弹出导入提示。\n\n如未自动弹出，请手动点击右上角"+"号 → 类型选"WireGuard" → 粘贴配置。')
   }
 
-  // Launch Shadowrocket (Direct URL scheme redirect)
+  // Launch Shadowrocket with conf in clipboard
   const launchShadowrocket = async () => {
-    const subContent = getSubContent()
-    if (!subContent) {
+    const conf = getBestNodeConf()
+    if (!conf) {
       alert('请先选择至少一个 IP 和一个端口')
       return
     }
     
-    addLog(`[*] 正在复制配置并尝试唤起 Shadowrocket...`)
+    addLog(`[*] 正在复制首选节点配置并尝试唤起 Shadowrocket...`)
     try {
-      // Write the raw wireguard:// URLs list to clipboard
-      await navigator.clipboard.writeText(subContent)
-      addLog(`[+] 节点数据已写入剪贴板，正在唤起小火箭...`)
+      await navigator.clipboard.writeText(conf)
+      addLog(`[+] 首选节点 .conf 配置已写入剪贴板，正在唤起小火箭...`)
+      addLog(`    └─ 节点: ${selectedIPs[0]}:${selectedPorts[0]}`)
       
-      // Launch Shadowrocket app. When it opens, it reads the clipboard and prompts to import.
+      // Launch Shadowrocket app — it will detect clipboard and prompt import
       window.location.href = 'shadowrocket://'
     } catch (e) {
-      addLog(`[!] 自动唤起失败: ${e.message}，已自动拷贝，请手动打开小火箭即可。`)
-      alert('已复制配置！请手动打开小火箭，软件将自动识别剪贴板。')
+      addLog(`[!] 自动唤起失败: ${e.message}，配置已自动拷贝，请手动打开小火箭即可。`)
+      alert('配置已复制！请手动打开小火箭，软件将自动检测剪贴板并提示导入。')
     }
   }
 
-  // Compile combined .conf text file
-  const generateConfContent = () => {
+  // Generate ALL nodes as separate .conf files packed into one downloadable text
+  const generateAllConfsContent = () => {
     if (selectedIPs.length === 0 || selectedPorts.length === 0) return ''
     
     let content = ''
@@ -433,38 +428,30 @@ export default function App() {
         content += `# ==========================================\n`
         content += `# 节点 ${idx}: ${ip}:${port}\n`
         content += `# ==========================================\n`
-        content += `[Interface]\n`
-        content += `PrivateKey = ${privateKey}\n`
-        content += `Address = ${addressV4}/32, ${addressV6}/128\n`
-        content += `DNS = 1.1.1.1, 8.8.8.8, 2606:4700:4700::1111, 2001:4860:4860::8888\n`
-        content += `MTU = 1280\n\n`
-        content += `[Peer]\n`
-        content += `PublicKey = ${peerPublicKey}\n`
-        content += `AllowedIPs = 0.0.0.0/0, ::/0\n`
-        content += `Endpoint = ${ip}:${port}\n`
-        content += `Reserved = ${reserved}\n\n\n`
+        content += generateSingleConf(ip, port, `CF-WARP-优选${idx}`)
+        content += `\n\n`
+        idx++
       })
-      idx++
     })
     
     return content
   }
 
-  // Copy .conf configuration to clipboard
+  // Copy all .conf configurations to clipboard
   const copyConf = () => {
-    const conf = generateConfContent()
+    const conf = generateAllConfsContent()
     if (!conf) {
       alert('请先选择至少一个 IP 和一个端口')
       return
     }
     navigator.clipboard.writeText(conf)
-    addLog('[+] 优选 WireGuard 配置内容已拷贝至剪贴板')
-    alert('合并配置内容已复制到剪贴板！')
+    addLog('[+] 全部优选 WireGuard 配置内容已拷贝至剪贴板')
+    alert('全部节点配置已复制！\n\n注意：小火箭仅支持逐个导入，请复制单个 [Interface]+[Peer] 配置块粘贴。\n批量导入推荐下载 .conf 文件。')
   }
 
-  // Download combined .conf file
+  // Download first node as individual .conf file (Shadowrocket compatible)
   const downloadConfFile = () => {
-    const conf = generateConfContent()
+    const conf = generateAllConfsContent()
     if (!conf) {
       alert('请先选择至少一个 IP 和一个端口')
       return
@@ -537,7 +524,7 @@ export default function App() {
         yaml += `    ipv6: ${addressV6}\n`
         yaml += `    private-key: ${privateKey}\n`
         yaml += `    public-key: ${peerPublicKey}\n`
-        yaml += `    reserved: [${reserved}]\n`
+        yaml += `    reserved: [${reserved.split(',').map(s => s.trim()).join(', ')}]\n`
         yaml += `    udp: true\n`
         yaml += `    remote-dns-resolve: true\n`
         yaml += `    mtu: 1280\n`
@@ -1135,12 +1122,12 @@ export default function App() {
             </button>
             
             <button
-              onClick={copyShadowrocketLink}
+              onClick={copyShadowrocketConf}
               disabled={selectedIPs.length === 0}
               className="bg-gray-900 border border-gray-800 text-gray-300 hover:border-gray-700 text-xs py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-1.5"
             >
               <Copy className="w-3.5 h-3.5 text-neonBlue" />
-              复制小火箭链接
+              复制首选节点配置
             </button>
 
             <button
