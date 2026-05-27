@@ -207,13 +207,20 @@ export default function App() {
       setAddressV6(cleanV6)
 
       // Calculate Reserved bytes from client_id
+      // Cloudflare returns client_id as a base64-encoded 4-byte string
+      // WireGuard reserved field uses the first 3 bytes
       let reservedStr = DEFAULT_RESERVED
       if (clientId) {
         const decodedBytes = fromBase64(clientId)
-        if (decodedBytes.length === 3) {
+        if (decodedBytes.length >= 3) {
+          // Take first 3 bytes from the decoded client_id
+          reservedStr = Array.from(decodedBytes.slice(0, 3)).join(',')
+          addLog(`[+] client_id (${clientId}) 解码成功，原始 ${decodedBytes.length} 字节，取前 3 字节作为 Reserved`)
+        } else if (decodedBytes.length > 0) {
           reservedStr = Array.from(decodedBytes).join(',')
+          addLog(`[!] client_id 解码字节数为 ${decodedBytes.length}，不足 3 字节，使用全部字节`)
         } else {
-          addLog(`[!] client_id (${clientId}) 解码字节长度为 ${decodedBytes.length}，期望 3 字节，使用默认 reserved 0,0,0`)
+          addLog(`[!] client_id (${clientId}) 解码失败，使用默认 reserved 0,0,0`)
         }
       } else {
         addLog('[!] 响应中未包含 client_id，使用默认 reserved 0,0,0')
@@ -368,10 +375,8 @@ export default function App() {
     conf += `PublicKey = ${peerPublicKey}\n`
     conf += `AllowedIPs = 0.0.0.0/0, ::/0\n`
     conf += `Endpoint = ${ip}:${port}\n`
-    // Reserved bytes for Cloudflare WARP identity
-    if (reserved && reserved !== '0,0,0') {
-      conf += `Reserved = ${reserved}\n`
-    }
+    // Reserved bytes — MUST always be present for Cloudflare WARP
+    conf += `Reserved = ${reserved}\n`
     return conf
   }
 
@@ -383,6 +388,14 @@ export default function App() {
 
   // Copy one standard .conf to clipboard for Shadowrocket import
   const copyShadowrocketConf = () => {
+    if (registrationStatus !== 'success') {
+      alert('⚠️ 请先点击「注册账户」完成 WARP 注册！\n\n未注册的密钥无法与 Cloudflare 建立 WireGuard 隧道。')
+      return
+    }
+    if (reserved === '0,0,0') {
+      alert('⚠️ Reserved 保留字节为 0,0,0，说明注册可能未成功。\n\n请重新点击「注册账户」。')
+      return
+    }
     const conf = getBestNodeConf()
     if (!conf) {
       alert('请先选择至少一个 IP 和一个端口')
@@ -391,11 +404,21 @@ export default function App() {
     navigator.clipboard.writeText(conf)
     addLog(`[+] 首选节点 WireGuard 配置 (.conf 格式) 已拷贝至剪贴板`)
     addLog(`    └─ 节点: ${selectedIPs[0]}:${selectedPorts[0]}`)
+    addLog(`    └─ Reserved: ${reserved}`)
+    addLog(`    └─ 配置预览:\n${conf}`)
     alert('首选节点配置已复制到剪贴板！\n\n请打开小火箭，软件将自动检测剪贴板并弹出导入提示。\n\n如未自动弹出，请手动点击右上角"+"号 → 类型选"WireGuard" → 粘贴配置。')
   }
 
   // Launch Shadowrocket with conf in clipboard
   const launchShadowrocket = async () => {
+    if (registrationStatus !== 'success') {
+      alert('⚠️ 请先点击「注册账户」完成 WARP 注册！\n\n未注册的密钥无法与 Cloudflare 建立 WireGuard 隧道。')
+      return
+    }
+    if (reserved === '0,0,0') {
+      alert('⚠️ Reserved 保留字节为 0,0,0，说明注册可能未成功。\n\n请重新点击「注册账户」。')
+      return
+    }
     const conf = getBestNodeConf()
     if (!conf) {
       alert('请先选择至少一个 IP 和一个端口')
@@ -407,6 +430,7 @@ export default function App() {
       await navigator.clipboard.writeText(conf)
       addLog(`[+] 首选节点 .conf 配置已写入剪贴板，正在唤起小火箭...`)
       addLog(`    └─ 节点: ${selectedIPs[0]}:${selectedPorts[0]}`)
+      addLog(`    └─ Reserved: ${reserved}`)
       
       // Launch Shadowrocket app — it will detect clipboard and prompt import
       window.location.href = 'shadowrocket://'
