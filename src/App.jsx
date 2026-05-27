@@ -144,44 +144,48 @@ export default function App() {
     }
 
     const endpoints = [
-      { name: '云端代理 (CF Pages)', url: '/api/register' },
-      { name: '直连方式', url: 'https://api.cloudflareclient.com/v0a2415/reg' },
-      { name: 'CORS 代理源 A', url: 'https://corsproxy.io/?https://api.cloudflareclient.com/v0a2415/reg' },
-      { name: 'CORS 代理源 B', url: 'https://api.codetabs.com/v1/proxy?quest=https://api.cloudflareclient.com/v0a2415/reg' }
+      { name: '云端代理 (CF Pages)', url: '/api/register', retries: 2 },
+      { name: '直连方式', url: 'https://api.cloudflareclient.com/v0a2415/reg', retries: 1 },
+      { name: 'CORS 代理源 A', url: 'https://corsproxy.io/?https://api.cloudflareclient.com/v0a2415/reg', retries: 1 },
+      { name: 'CORS 代理源 B', url: 'https://api.allorigins.win/raw?url=' + encodeURIComponent('https://api.cloudflareclient.com/v0a2415/reg'), retries: 1 },
     ]
 
     let response = null
     let lastError = null
 
     for (const endpoint of endpoints) {
-      addLog(`[*] 尝试使用 [${endpoint.name}] 进行注册...`)
-      try {
-        const controller = new AbortController()
-        const timeoutId = setTimeout(() => controller.abort(), 8000)
+      for (let attempt = 1; attempt <= endpoint.retries; attempt++) {
+        const retryLabel = endpoint.retries > 1 ? ` (第${attempt}次尝试)` : ''
+        addLog(`[*] 尝试使用 [${endpoint.name}]${retryLabel} 进行注册...`)
+        try {
+          const controller = new AbortController()
+          const timeoutId = setTimeout(() => controller.abort(), 15000)
 
-        const res = await fetch(endpoint.url, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json; charset=UTF-8',
-            'User-Agent': 'okhttp/3.12.1'
-          },
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        })
+          const res = await fetch(endpoint.url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json; charset=UTF-8',
+            },
+            body: JSON.stringify(payload),
+            signal: controller.signal
+          })
 
-        clearTimeout(timeoutId)
+          clearTimeout(timeoutId)
 
-        if (res.ok) {
-          response = res
-          addLog(`[+] [${endpoint.name}] 成功建立通道！`)
-          break
-        } else {
-          addLog(`[!] [${endpoint.name}] 响应状态错误: ${res.status}`)
+          if (res.ok) {
+            response = res
+            addLog(`[+] [${endpoint.name}] 成功建立通道！`)
+            break
+          } else {
+            const errBody = await res.text().catch(() => '')
+            addLog(`[!] [${endpoint.name}] 响应状态错误: ${res.status} ${errBody.substring(0, 100)}`)
+          }
+        } catch (err) {
+          addLog(`[!] [${endpoint.name}] 失败: ${err.message}`)
+          lastError = err
         }
-      } catch (err) {
-        addLog(`[!] [${endpoint.name}] 失败: ${err.message}`)
-        lastError = err
       }
+      if (response) break
     }
 
     try {
